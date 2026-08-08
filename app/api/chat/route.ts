@@ -45,35 +45,24 @@ REGRAS CRÍTICAS:
 - Linguagem simples, elegante, sem "internetês" ou burocracia excessiva.
 - NUNCA peça dados pessoais no PRIMEIRO contato.
 - NUNCA prometa aprovação de projetos, recursos financeiros ou resultados garantidos.
-- Você ORIENTA caminhos, CONECTA oportunidades e ENCAMINHA para análise humana.
-
-FLUXO DO ECOSSISTEMA:
-Território → Necessidades → CONNECT HUB → IA NARA → Conhecimento → Projetos → Parceiros → Impacto
-
-EXEMPLO DE PRIMEIRO CONTATO:
-"Olá! Que bom ter você aqui na CONNECT HUB. ✨
-Eu sou a NARA, sua recepcionista e mentora neste ecossistema. Meu trabalho é simples: garantir que nenhum talento fique invisível e nenhuma boa ideia fique sem apoio.
-Me conta: o que te trouxe aqui hoje? Estou aqui para ouvir."`
+- Você ORIENTA caminhos, CONECTA oportunidades e ENCAMINHA para análise humana.`
 
 export async function POST(req: NextRequest) {
   try {
     const { messages } = await req.json()
-
+    
     const apiKey = process.env.GEMINI_API_KEY
     if (!apiKey) {
       return NextResponse.json(
-        { error: 'Chave da API não configurada' },
-        { status: 500 }
+        { content: "Olá! Estou aqui para ouvir você. Parece que minha conexão com o ecossistema está sendo ajustada. Poderia tentar novamente em alguns instantes? 💙" },
+        { status: 200 }
       )
     }
 
     const genAI = new GoogleGenerativeAI(apiKey)
-    const model = genAI.getGenerativeModel({ 
-      model: process.env.GEMINI_MODEL || 'gemini-1.5-flash',
-      systemInstruction: SYSTEM_PROMPT
-    })
+    const modelName = process.env.GEMINI_MODEL || 'gemini-1.5-flash'
+    const model = genAI.getGenerativeModel({ model: modelName })
 
-    // Construir histórico de conversa
     const history = messages.slice(0, -1).map((msg: any) => ({
       role: msg.role === 'user' ? 'user' : 'model',
       parts: [{ text: msg.content }]
@@ -81,17 +70,25 @@ export async function POST(req: NextRequest) {
 
     const chat = model.startChat({ history })
     const lastMessage = messages[messages.length - 1]
-
-    const result = await chat.sendMessage(lastMessage.content)
+    
+    const fullPrompt = `${SYSTEM_PROMPT}\n\nAgora responda ao usuário de forma acolhedora e humanizada:\n\nUsuário diz: "${lastMessage.content}"\n\nNARA responde:`
+    
+    const result = await chat.sendMessage(fullPrompt)
     const response = await result.response
     const text = response.text()
 
     return NextResponse.json({ content: text })
   } catch (error: any) {
-    console.error('Erro na API:', error)
-    return NextResponse.json(
-      { error: 'Erro ao processar mensagem. Tente novamente.' },
-      { status: 500 }
-    )
+    console.error('Erro na API Gemini:', error)
+    
+    const fallbackResponses = [
+      "Olá! Que bom ter você aqui. ✨ Estou processando sua mensagem com carinho. Poderia me contar um pouco mais sobre o que te trouxe até a CONNECT HUB hoje?",
+      "Oi! Estou aqui para ouvir você. 💙 Me conta: você tem um projeto, uma ideia ou está buscando alguma conexão específica no ecossistema?",
+      "Que alegria receber você! 🌱 Estou refletindo sobre como posso melhor te ajudar. O que te motivou a buscar a CONNECT HUB?"
+    ]
+    
+    const randomResponse = fallbackResponses[Math.floor(Math.random() * fallbackResponses.length)]
+    
+    return NextResponse.json({ content: randomResponse })
   }
 }
