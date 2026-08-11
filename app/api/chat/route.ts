@@ -1,4 +1,4 @@
-import { GoogleGenAI } from "@google/genai";
+import { GoogleGenerativeAI } from "@google/generative-ai";
 import { NextResponse } from "next/server";
 
 export async function POST(req: Request) {
@@ -10,18 +10,16 @@ export async function POST(req: Request) {
       throw new Error("Chave da API Gemini não configurada");
     }
 
-    const ai = new GoogleGenAI({ apiKey });
+    const genAI = new GoogleGenerativeAI(apiKey);
+    const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash" });
 
-    // Última mensagem do usuário
     const lastMessage = messages[messages.length - 1]?.content || "";
-    
-    // Histórico das últimas 8 mensagens (contexto rico)
+
     const history = messages
       .slice(-8)
       .map((m: any) => `${m.role === "user" ? "USUÁRIO" : "NARA"}: ${m.content}`)
       .join("\n\n");
 
-    // Contador de mensagens para variar a abordagem
     const messageCount = messages.filter((m: any) => m.role === "user").length;
 
     const systemPrompt = `
@@ -53,19 +51,16 @@ SUA MISSÃO:
 ABORDAGENS POR NÚMERO DE MENSAGENS:
 
 MENSAGENS 1-2 (ENTENDIMENTO):
-Foco em entender o problema. Pergunte:
 - Quem é o público-alvo específico?
 - Qual o maior obstáculo hoje?
 - O que já foi tentado antes?
 
 MENSAGENS 3-4 (VALIDAÇÃO):
-Desafie a ideia, peça dados concretos:
 - Quantas pessoas realmente serão impactadas?
 - Como você vai medir o sucesso?
 - Qual o custo estimado?
 
 MENSAGENS 5+ (ESCALA):
-Conecte com soluções da CONNECT HUB e proponha reunião:
 - Ofereça mentoria, capacitação, networking
 - Sugira agendamento com a diretoria
 - Seja direta e propositiva
@@ -79,7 +74,7 @@ REGRAS CRÍTICAS:
 - Limite: 150 palavras máximo
 - Português brasileiro natural
 
-FORMATO DE RESPOSTA (VARIE):
+FORMATOS DE RESPOSTA (VARIE ENTRE ELES):
 
 Opção 1 - Pergunta desafiadora:
 "[Reconhecimento do ponto]. Mas me diz uma coisa: [pergunta específica]? Isso muda tudo."
@@ -103,12 +98,8 @@ REGRAS ABSOLUTAS:
 RESPONDA AGORA (seja estratégica, específica e variada):
 `;
 
-    const response = await ai.models.generateContent({
-      model: "gemini-1.5-flash",
-      contents: systemPrompt,
-    });
-
-    const text = response.text || "Estou aqui! Me conta mais sobre seu projeto.";
+    const result = await model.generateContent(systemPrompt);
+    const text = result.response.text();
 
     return NextResponse.json({ text });
   } catch (error: any) {
